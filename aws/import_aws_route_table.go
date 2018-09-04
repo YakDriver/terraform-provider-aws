@@ -16,6 +16,15 @@ func resourceAwsRouteTableImportState(
 
 	// First query the resource itself
 	id := d.Id()
+	/*
+		e := reflect.ValueOf(&d).Elem()
+
+		for i := 0; i < e.NumField(); i++ {
+			varName := e.Type().Field(i).Name
+			varType := e.Type().Field(i).Type
+			varValue := e.Field(i).Interface()
+			log.Printf("[WARN] %v %v %v", varName, varType, varValue)
+		}*/
 	resp, err := conn.DescribeRouteTables(&ec2.DescribeRouteTablesInput{
 		RouteTableIds: []*string{&id},
 	})

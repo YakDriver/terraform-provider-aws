@@ -30,6 +30,7 @@ func resourceAwsRoute() *schema.Resource {
 		Exists: resourceAwsRouteExists,
 		Importer: &schema.ResourceImporter{
 			State: func(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+				log.Print("[WARN] ROUTE ROUTE ROUTE: IMPORT")
 				idParts := strings.Split(d.Id(), "_")
 				if len(idParts) != 2 || idParts[0] == "" || idParts[1] == "" {
 					return nil, fmt.Errorf("unexpected format of ID (%q), expected ROUTETABLEID_DESTINATION", d.Id())
@@ -51,6 +52,45 @@ func resourceAwsRoute() *schema.Resource {
 			Create: schema.DefaultTimeout(2 * time.Minute),
 			Delete: schema.DefaultTimeout(5 * time.Minute),
 		},
+
+		/*CustomizeDiff: func(diff *schema.ResourceDiff, v interface{}) error {
+
+			if diff.HasChange("route_table_id") &&
+				(diff.HasChange("destination_cidr_block") || diff.HasChange("destination_ipv6_cidr_block")) {
+				log.Print("[WARN] Checking custom diff of aws_route")
+
+				oldRouteTableID, routeTableID := diff.GetChange("route_table_id")
+				log.Printf("[WARN] routeTableId %s", routeTableID.(string))
+
+				searchResource := resourceAwsRoute()
+				d := searchResource.Data(nil)
+				d.SetType("aws_route")
+				d.Set("route_table_id", routeTableID.(string))
+
+				if diff.HasChange("destination_cidr_block") {
+					_, destinationCidrBlock := diff.GetChange("destination_cidr_block")
+					log.Printf("[WARN] destinationCidrBlock %s", destinationCidrBlock.(string))
+					d.Set("destination_cidr_block", destinationCidrBlock.(string))
+				} else {
+					_, destinationIPv6CidrBlock := diff.GetChange("destination_ipv6_cidr_block")
+					log.Printf("[WARN] destinationIPv6CidrBlock %s", destinationIPv6CidrBlock.(string))
+					d.Set("destination_ipv6_cidr_block", destinationIPv6CidrBlock.(string))
+				}
+				log.Print("[WARN] This is crazy")
+
+				exists, err := resourceAwsRouteExists(d, v)
+				log.Print("[WARN] This is crazier")
+				if err != nil {
+					return err
+				} else if exists {
+					log.Print("[WARN] Same existing route found so clearing difference")
+					diff.
+					return diff.SetNew("route_table_id", oldRouteTableID)
+				}
+
+			}
+			return nil
+		},*/
 
 		Schema: map[string]*schema.Schema{
 			"destination_cidr_block": {
@@ -129,6 +169,7 @@ func resourceAwsRoute() *schema.Resource {
 }
 
 func resourceAwsRouteCreate(d *schema.ResourceData, meta interface{}) error {
+	log.Print("[WARN] ROUTE ROUTE ROUTE: CREATE")
 	conn := meta.(*AWSClient).ec2conn
 	var numTargets int
 	var setTarget string
@@ -282,6 +323,7 @@ func resourceAwsRouteCreate(d *schema.ResourceData, meta interface{}) error {
 }
 
 func resourceAwsRouteRead(d *schema.ResourceData, meta interface{}) error {
+	log.Print("[WARN] ROUTE ROUTE ROUTE: READ")
 	conn := meta.(*AWSClient).ec2conn
 	routeTableId := d.Get("route_table_id").(string)
 
@@ -316,6 +358,7 @@ func resourceAwsRouteSetResourceData(d *schema.ResourceData, route *ec2.Route) {
 }
 
 func resourceAwsRouteUpdate(d *schema.ResourceData, meta interface{}) error {
+	log.Print("[WARN] ROUTE ROUTE ROUTE: UPDATE")
 	conn := meta.(*AWSClient).ec2conn
 	var numTargets int
 	var setTarget string
@@ -405,6 +448,7 @@ func resourceAwsRouteUpdate(d *schema.ResourceData, meta interface{}) error {
 }
 
 func resourceAwsRouteDelete(d *schema.ResourceData, meta interface{}) error {
+	log.Print("[WARN] ROUTE ROUTE ROUTE: DELETE")
 	conn := meta.(*AWSClient).ec2conn
 
 	deleteOpts := &ec2.DeleteRouteInput{
@@ -449,6 +493,7 @@ func resourceAwsRouteDelete(d *schema.ResourceData, meta interface{}) error {
 }
 
 func resourceAwsRouteExists(d *schema.ResourceData, meta interface{}) (bool, error) {
+	log.Print("[WARN] ROUTE ROUTE ROUTE: EXISTS")
 	conn := meta.(*AWSClient).ec2conn
 	routeTableId := d.Get("route_table_id").(string)
 
