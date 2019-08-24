@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/sts"
 
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
@@ -184,6 +185,18 @@ func resourceAwsIamRoleCreate(d *schema.ResourceData, meta interface{}) error {
 		return fmt.Errorf("Error creating IAM Role %s: %s", name, err)
 	}
 	d.SetId(*createResp.Role.RoleName)
+
+	stateConf := &resource.StateChangeConf{
+		Pending: []string{iam.ErrCodeNoSuchEntityException},
+		Target:  []string{d.Id()},
+		Refresh: resourceAwsIamRoleStateRefreshFunc(meta, d.Id(), *createResp.Role.Arn),
+		Timeout: d.Timeout(schema.TimeoutCreate),
+	}
+
+	if _, err := stateConf.WaitForState(); err != nil {
+		return fmt.Errorf("Error waiting for IAM role (%s) to create: %s", d.Id(), err)
+	}
+
 	return resourceAwsIamRoleRead(d, meta)
 }
 
@@ -382,6 +395,17 @@ func resourceAwsIamRoleDelete(d *schema.ResourceData, meta interface{}) error {
 	if err != nil {
 		return fmt.Errorf("Error deleting IAM role: %s", err)
 	}
+
+	stateConf := &resource.StateChangeConf{
+		Pending: []string{d.Id()},
+		Target:  []string{iam.ErrCodeNoSuchEntityException},
+		Refresh: resourceAwsIamRoleStateRefreshFunc(meta, d.Id(), d.Get("arn").(string)),
+		Timeout: d.Timeout(schema.TimeoutCreate),
+	}
+
+	if _, err := stateConf.WaitForState(); err != nil {
+		return fmt.Errorf("Error waiting for IAM role (%s) to create: %s", d.Id(), err)
+	}
 	return nil
 }
 
@@ -478,4 +502,49 @@ func deleteAwsIamRolePolicies(conn *iam.IAM, rolename string) error {
 	}
 
 	return nil
+}
+
+func resourceAwsIamRoleStateRefreshFunc(meta interface{}, id, arn string) resource.StateRefreshFunc {
+	return func() (interface{}, string, error) {
+		log.Printf("[YAK] role state refresh id:%s", id)
+		iamconn := meta.(*AWSClient).iamconn
+
+		input := &iam.GetRoleInput{
+			RoleName: aws.String(id),
+		}
+
+		output, err := iamconn.GetRole(input)
+		if err != nil {
+			log.Printf("[YAK] role state refresh err", err)
+			if isAWSErr(err, iam.ErrCodeNoSuchEntityException, "") {
+				return *output, iam.ErrCodeNoSuchEntityException, nil
+			}
+			return nil, "", err
+		}
+
+		stsconn := meta.(*AWSClient).stsconn
+
+		stsInput := &sts.AssumeRoleInput{
+			DurationSeconds: aws.Int64(900),
+			ExternalId:      aws.String("fa739c5c-f516-5ba1-9d86-96b2ea62d761"),
+			RoleArn:         aws.String(arn),
+			RoleSessionName: aws.String("Bob"),
+		}
+		stsOutput, err := stsconn.AssumeRole(stsInput)
+		if err != nil {
+			log.Printf("[YAK] role (%s) state refresh assume role err:%s", arn, err)
+			if isAWSErr(err, "AccessDenied", "Access denied") {
+				log.Printf("[YAK] INSIDE role state refresh assume role err:%s", err)
+				// This error is only returned before role is created.
+				// If current user has no access to the role, when
+				// creation is complete, the error will be more specific:
+				// "AccessDenied: User <user_arn> is not authorized to
+				// perform: sts:AssumeRole on resource: <role_arn>"
+				return *stsOutput, iam.ErrCodeNoSuchEntityException, nil
+			}
+		}
+
+		log.Printf("[YAK] role state refresh no err, return %s", aws.StringValue(output.Role.RoleName))
+		return *output, aws.StringValue(output.Role.RoleName), nil
+	}
 }
