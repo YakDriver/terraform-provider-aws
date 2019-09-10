@@ -79,6 +79,18 @@ func resourceAwsIamRolePolicyPut(d *schema.ResourceData, meta interface{}) error
 	}
 
 	d.SetId(fmt.Sprintf("%s:%s", *request.RoleName, *request.PolicyName))
+
+	stateConf := &resource.StateChangeConf{
+		Pending: []string{iam.ErrCodeNoSuchEntityException},
+		Target:  []string{d.Id()},
+		Refresh: resourceAwsIamRolePolicyStateRefreshFunc(iamconn, d.Id()),
+		Timeout: d.Timeout(schema.TimeoutCreate),
+	}
+
+	if _, err := stateConf.WaitForState(); err != nil {
+		return fmt.Errorf("Error waiting for IAM role policy (%s) to become ready: %s", d.Id(), err)
+	}
+
 	return resourceAwsIamRolePolicyRead(d, meta)
 }
 
@@ -141,6 +153,17 @@ func resourceAwsIamRolePolicyDelete(d *schema.ResourceData, meta interface{}) er
 		}
 		return fmt.Errorf("Error deleting IAM role policy %s: %s", d.Id(), err)
 	}
+
+	stateConf := &resource.StateChangeConf{
+		Pending: []string{d.Id()},
+		Target:  []string{iam.ErrCodeNoSuchEntityException},
+		Refresh: resourceAwsIamRolePolicyStateRefreshFunc(iamconn, d.Id()),
+		Timeout: d.Timeout(schema.TimeoutCreate),
+	}
+
+	if _, err := stateConf.WaitForState(); err != nil {
+		return fmt.Errorf("Error waiting for IAM role policy (%s) to delete: %s", d.Id(), err)
+	}
 	return nil
 }
 
@@ -154,4 +177,28 @@ func resourceAwsIamRolePolicyParseId(id string) (roleName, policyName string, er
 	roleName = parts[0]
 	policyName = parts[1]
 	return
+}
+
+func resourceAwsIamRolePolicyStateRefreshFunc(conn *iam.IAM, id string) resource.StateRefreshFunc {
+	return func() (interface{}, string, error) {
+		role, name, err := resourceAwsIamRolePolicyParseId(id)
+		if err != nil {
+			return nil, "", err
+		}
+
+		input := &iam.GetRolePolicyInput{
+			PolicyName: aws.String(name),
+			RoleName:   aws.String(role),
+		}
+
+		output, err := conn.GetRolePolicy(input)
+		if err != nil {
+			if isAWSErr(err, iam.ErrCodeNoSuchEntityException, "") {
+				return *output, iam.ErrCodeNoSuchEntityException, nil
+			}
+			return nil, "", err
+		}
+
+		return *output, id, nil
+	}
 }
