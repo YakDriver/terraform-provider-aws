@@ -115,6 +115,7 @@ func TestAccAWSRoute53Record_basic(t *testing.T) {
 		IDRefreshName: resourceName,
 		Providers:     testAccProviders,
 		CheckDestroy:  testAccCheckRoute53RecordDestroy,
+		SkipOnError:   acctest.SkipOnErrorContains(`Operations related to PublicDNS are not supported in this aws partition`),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccRoute53RecordConfig,

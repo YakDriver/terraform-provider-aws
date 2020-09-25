@@ -21,3 +21,5 @@ require (
 	github.com/stretchr/testify v1.6.1 // indirect
 	gopkg.in/yaml.v2 v2.3.0
 )
+
+replace github.com/hashicorp/terraform-plugin-sdk/v2 => /Volumes/develop/go/src/github.com/hashicorp/terraform-plugin-sdk

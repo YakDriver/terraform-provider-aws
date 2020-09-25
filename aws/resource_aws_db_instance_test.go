@@ -2795,6 +2795,7 @@ func TestAccAWSDBInstance_PerformanceInsightsEnabled_EnabledToDisabled(t *testin
 		PreCheck:     func() { testAccPreCheck(t); testAccRDSPerformanceInsightsDefaultVersionPreCheck(t, "mysql") },
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckAWSClusterDestroy,
+		SkipOnError:  acctest.SkipOnErrorContains(`Access denied to Performance Insights`),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccAWSDBInstanceConfig_PerformanceInsightsEnabled(rName),
