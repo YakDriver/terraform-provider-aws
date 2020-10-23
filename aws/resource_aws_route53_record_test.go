@@ -106,16 +106,25 @@ func TestParseRecordId(t *testing.T) {
 	}
 }
 
+func testAccAWSRoute53RecordPublicDNSErrorCheck(err error, t *testing.T) error {
+	re := regexp.MustCompile(`Operations related to PublicDNS are not supported in this aws partition`)
+
+	if re.MatchString(err.Error()) {
+		t.Skipf("skipping test; this partition %s does not support PublicDNS operations", testAccGetPartition())
+	}
+	return err
+}
+
 func TestAccAWSRoute53Record_basic(t *testing.T) {
 	var record1 route53.ResourceRecordSet
 	resourceName := "aws_route53_record.default"
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:      func() { testAccPreCheck(t) },
+		ErrorCheck:    func(err error) error { return testAccAWSRoute53RecordPublicDNSErrorCheck(err, t) },
 		IDRefreshName: resourceName,
 		Providers:     testAccProviders,
 		CheckDestroy:  testAccCheckRoute53RecordDestroy,
-		SkipOnError:   acctest.SkipOnErrorContains(`Operations related to PublicDNS are not supported in this aws partition`),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccRoute53RecordConfig,
@@ -213,6 +222,7 @@ func TestAccAWSRoute53Record_basic_fqdn(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:      func() { testAccPreCheck(t) },
+		ErrorCheck:    func(err error) error { return testAccAWSRoute53RecordPublicDNSErrorCheck(err, t) },
 		IDRefreshName: resourceName,
 		Providers:     testAccProviders,
 		CheckDestroy:  testAccCheckRoute53RecordDestroy,
@@ -254,6 +264,7 @@ func TestAccAWSRoute53Record_basic_trailingPeriodAndZoneID(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:      func() { testAccPreCheck(t) },
+		ErrorCheck:    func(err error) error { return testAccAWSRoute53RecordPublicDNSErrorCheck(err, t) },
 		IDRefreshName: resourceName,
 		Providers:     testAccProviders,
 		CheckDestroy:  testAccCheckRoute53RecordDestroy,
